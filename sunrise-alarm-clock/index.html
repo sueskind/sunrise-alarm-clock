@@ -1,0 +1,170 @@
+<html>
+
+<head>
+    <meta charset='utf-8' />
+    <meta name='viewport' content='width=device-width, initial-scale=1'>
+    <link rel='stylesheet' href='https://fonts.googleapis.com/css?family=Roboto:regular,bold,italic,thin,light,bolditalic,black,medium&amp;lang=en'>
+    <link rel='stylesheet' href='https://fonts.googleapis.com/icon?family=Material+Icons'>
+    <link rel='stylesheet' href='https://cdn.jsdelivr.net/gh/puranjayjain/md-date-time-picker/dist/css/mdDateTimePicker.css'>
+    <link rel='stylesheet' href='https://cdn.jsdelivr.net/gh/puranjayjain/md-date-time-picker/dist/css/themes/light/indigo/mdDateTimePicker.min.css'>
+    <script src='https://cdn.jsdelivr.net/gh/puranjayjain/md-date-time-picker/dist/js/moment.min.js'></script>
+    <script src='https://cdn.jsdelivr.net/gh/puranjayjain/md-date-time-picker/dist/js/draggabilly.pkgd.min.js'></script>
+    <script src='https://cdn.jsdelivr.net/gh/puranjayjain/md-date-time-picker/dist/js/mdDateTimePicker.min.js'></script>
+    <style>
+        body.main {
+            background-color: #311B92;
+            padding-top: 50px;
+            display: block;
+            text-align: center;
+            font-family: 'Roboto';
+        }
+
+        div.section {
+            margin-bottom: 30px;
+        }
+
+        h1.heading {
+            color: #FFC107;
+            font-weight: 300;
+            margin-bottom: 50px;
+        }
+
+        p.tooltip {
+            margin-top: 5px;
+            color: white;
+        }
+
+        p#status {
+            margin-top: 10px;
+            color: white;
+            font-size: small;
+        }
+
+        .material-icons {
+            font-size: 30px;
+        }
+
+        .material-btn {
+            background-color: #FFC107;
+            color: white;
+            border: none;
+            box-shadow: 2px 5px 5px #1b1b1b;
+            transition: 0.2s;
+        }
+
+        .rectangle-btn {
+            border-radius: 5px;
+            width: 100px;
+            height: 40px;
+        }
+
+        .floating-action-btn {
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+        }
+
+        .material-btn:active {
+            opacity: 0.5;
+        }
+    </style>
+</head>
+
+<body class='main'>
+    <h1 class='heading'>Sunrise Alarm</h1>
+    <div class='section'>
+        <button id='in' class='material-btn floating-action-btn'><i class='material-icons'>alarm</i></button>
+        <p class='tooltip'>Sunrise starting time</p>
+    </div>
+    <div class='section'>
+        <button id='for' class='material-btn floating-action-btn'><i class='material-icons'>brightness_6</i></button>
+        <p class='tooltip'>Rising duration</p>
+    </div>
+    <div class='section'>
+        <button id='stay' class='material-btn floating-action-btn'><i class='material-icons'>brightness_7</i></button>
+        <p class='tooltip'>Leaving on afterwards</p>
+    </div>
+    <div class='section'>
+        <button id='set' class='material-btn rectangle-btn'>Apply</button>
+        <p id='status'></p>
+    </div>
+    <div class='section'>
+        <button id='off' class='material-btn floating-action-btn'><i class='material-icons'>alarm_off</i></button>
+        <p class='tooltip'>Turn off</p>
+    </div>
+
+    <script>
+        function toSeconds(m) {
+            return m.hours() * 3600 + m.minutes() * 60 + m.seconds();
+        }
+
+        var in_picker = new mdDateTimePicker.default({ type: 'time', init: moment('6', 'h') });
+        in_picker.trigger = document.getElementById('in');
+        document.getElementById('in').addEventListener('click', function () { in_picker.toggle(); });
+
+        var for_picker = new mdDateTimePicker.default({ type: 'time', init: moment('1', 'h'), mode: true });
+        document.getElementById('for').addEventListener('click', function () { for_picker.toggle(); });
+
+        var stay_picker = new mdDateTimePicker.default({ type: 'time', init: moment('1', 'h'), mode: true });
+        document.getElementById('stay').addEventListener('click', function () { stay_picker.toggle(); });
+
+
+        function httpGetAsync(url, onSuccess, onFailure) {
+            var xmlHttp = new XMLHttpRequest();
+            xmlHttp.onreadystatechange = function () {
+                if (xmlHttp.readyState == 4) {
+                    if (xmlHttp.status < 300) {
+                        onSuccess();
+                    } else {
+                        onFailure(xmlHttp.status);
+                    }
+                }
+            };
+            xmlHttp.open('GET', url, true);
+            xmlHttp.send(null);
+        }
+
+        document.getElementById('set').addEventListener('click', function () {
+            var in_ = toSeconds(in_picker.time) - toSeconds(moment());
+            if (in_ < 0)
+                in_ += 24 * 3600;
+            var for_ = toSeconds(for_picker.time);
+            var stay = toSeconds(stay_picker.time);
+            httpGetAsync('/set?in=' + in_ + '&for=' + for_ + '&stay=' + stay, function () {
+                var m = Math.floor(in_ / 60 % 60);
+                var h = Math.floor(in_ / 3600);
+                var in_fmt = '';
+                if (h > 0) {
+                    in_fmt += h + ' hour';
+                    if (h != 1) {
+                        in_fmt += 's';
+                    }
+                    in_fmt += ' ';
+                    if (m > 0) {
+                        in_fmt += 'and ';
+                    }
+                }
+                if (m > 0) {
+                    in_fmt += m + ' minute';
+                    if (m != 1) {
+                        in_fmt += 's';
+                    }
+                }
+                document.getElementById('status').innerText = 'Alarm set in ' + in_fmt;
+            }, function (errorStatus) {
+                document.getElementById('status').innerText = 'Error ' + errorStatus + ' while setting clock.'
+                    + ' in=' + in_ + ' for=' + for_ + ' stay=' + stay;
+            });
+        });
+
+        document.getElementById('off').addEventListener('click', function () {
+            httpGetAsync('/off', function () {
+                document.getElementById('status').innerText = '';
+            }, function (errorStatus) {
+                document.getElementById('status').innerText = 'Error ' + errorStatus + ' while turning off clock.';
+            });
+        });
+    </script>
+</body>
+
+</html>
